@@ -7,6 +7,7 @@ from requests import Session
 from logging import Logger
 import ujson
 import dacite
+from .query import Query, QueryOptions, QueryResult, QueryKind
 
 
 @dataclass
@@ -111,3 +112,15 @@ class DatasetsClient:  # pylint: disable=R0903
         """Deletes a dataset with the given id."""
         path = "datasets/%s" % id
         res = self.session.delete(path)
+
+    def query(self, id: str, query: Query, opts: QueryOptions) -> QueryResult:
+        """Executes the given query on the dataset identified by its id."""
+        if opts.saveAsKind.value == QueryKind.APL.value:
+            raise BaseException('invalid query kind %s: must be %s or %s' % (opts.saveAsKind, QueryKind.ANALYTICS, QueryKind.STREAM))
+        
+        path = "datasets/%s/query" % id
+        res = self.session.post(path, data=ujson.dumps(asdict(query), default=str))
+        result = dacite.from_dict(data_class=QueryResult, data=res.json())
+        query_id = res.headers.get('X-Axiom-History-Query-Id')
+        print(query_id)
+        return result
